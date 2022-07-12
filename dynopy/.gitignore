@@ -131,7 +131,3 @@ localhistory
 gitcommit.sh
 dyno_template.py
 dyno_4_networks.py
-
-#
-.idea/
-identifier.sqlite
