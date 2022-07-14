@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 from collections import namedtuple
 import commands
 
+
 Command = namedtuple('Command', ['name', 'description', 'arguments'])
 
 COMMANDS = [
