@@ -1,4 +1,4 @@
-import xml.etree.ElementTree as ET
+import lxml.etree as etree
 import gzip
 import logging
 
@@ -23,22 +23,20 @@ def parse(file, mode=None, tag=tag_entry):
         mode = 'gz' if file.endswith('.gz') else 'xml'
         logging.info(f'Parsing mode: {mode}')
 
-    f = gzip.open if mode == 'gz' else (open if mode == 'xml' else None)
+    stream = gzip.open(file) if mode == 'gz' else (file if mode == 'xml' else None)
 
-    if f is None:
+    if stream is None:
         raise ValueError(f'Unknown mode {mode}, must be "xml" or "gz"')
 
-    with f(file) as fh:
-        for elem in iterparse(fh, tag=tag):
-            yield elem
+    for elem in iterparse(stream, tag=tag):
+        yield elem
 
 
 def iterparse(xml, tag=tag_entry):
-    """Process XML files iteratively, directly from disk / a stream."""
-    context = iter(ET.iterparse(xml, events=('start', 'end')))
+    """Process XML iteratively."""
+    context = iter(etree.iterparse(xml, events=('start', 'end')))
     _, root = next(context)
     for event, elem in context:
         if event == 'end' and elem.tag == tag:
             yield elem
-            # clear root to keep memory usage low
-            root.clear()
+            root.clear()  # clear root to keep memory usage low
