@@ -1,6 +1,7 @@
 import time
 import logging
 
+# TODO !!! count progress by % of file read
 
 class InfoUtil:
     """Produces progress info about the progress over some batch.
