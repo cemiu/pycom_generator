@@ -4,8 +4,7 @@ import logging
 
 from argparse import ArgumentParser
 from collections import namedtuple
-import commands
-
+from mjolnir import commands
 
 Command = namedtuple('Command', ['name', 'description', 'arguments'])
 

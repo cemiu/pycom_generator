@@ -1,3 +1,3 @@
-from console import main
+from mjolnir.console import main
 
 main()
