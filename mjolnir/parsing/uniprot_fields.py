@@ -1,5 +1,5 @@
 from mjolnir.parsing.post_processing import *
-from mjolnir.util.xpath_util import *
+from mjolnir.parsing.xpath import *
 
 
 _all_names = '*[self::up:recommendedName or self::up:alternativeName]'
@@ -17,7 +17,7 @@ struct = {
         './up:accession[1]',
         text(),
     ],
-    'secondaryIds': [
+    'accessions': [
         './up:accession',
         alltext(),
     ],
@@ -36,16 +36,16 @@ struct = {
     'taxonomy': [
         './up:organism[1]/up:lineage[1]/up:taxon',
         alltext(),
-    ],  # TODO tax <-> spec mapping
+    ],
     'organismNcbiId': [
         './up:organism[1]/up:dbReference',
         attrib('id'),
     ],
-    'organismNameScientific': [
+    'organismScientificName': [
         './up:organism[1]/up:name[@type="scientific"]',
         text(),
     ],
-    'organismNameCommon': [
+    'organismCommonName': [
         './up:organism[1]/up:name[@type="common"]',
         text(),
     ],
@@ -89,7 +89,7 @@ struct = {
         allraw(),
         post(post_struc, 'sequenceLength'),
     ],
-    'keyword': [
+    'keywords': [
         './up:keyword',
         alltext(),
     ],
@@ -97,7 +97,7 @@ struct = {
         './up:comment[@type="disease"]/up:disease',
         allattrib('id'),
     ],
-    'disease': [  # id <-> name mapping
+    'diseases': [  # id <-> name mapping
         './up:comment[@type="disease"]',
         allraw(),
     ],
@@ -105,13 +105,18 @@ struct = {
         './up:comment[@type="PTM"]',
         exists(first),
     ],
-    'cofactor': [  # name or id?
-        './up:comment[@type="cofactor"]/up:cofactor/up:name',
-        alltext(),
+    'cofactors': [  # name or id?
+        './up:comment[@type="cofactor"]/up:cofactor',
+        allraw(),
     ],
-    'substrate': [  # txt or db?
-        './up:comment[@type="catalytic activity"]/up:reaction/up:text',
-        alltext(),
+    # 'substrate': [  # txt or db?
+    #     './up:comment[@type="catalytic activity"]/up:reaction/up:text',
+    #     alltext(),
+    # ],
+    'substrates': [
+        './up:comment[@type="catalytic activity"]/up:reaction',
+        allraw(),
+        post(post_substrate),
     ],
     'isDnaBinding': [
         './up:dbReference[@type="GO"]/up:property[@type="term" and contains(@value, "DNA binding")]',
@@ -120,5 +125,3 @@ struct = {
 }
 
 max_key_len = max(len(k) for k in struct)
-
-__all__ = ['struct', 'max_key_len']
