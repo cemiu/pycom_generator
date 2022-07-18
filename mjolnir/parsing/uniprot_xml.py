@@ -4,7 +4,7 @@ from mjolnir.parsing.xpath import *
 
 _all_names = '*[self::up:recommendedName or self::up:alternativeName]'
 
-"""Structure defining the extraction strategy for the UniProt XML fields.
+"""Model defining the extraction strategy for the UniProt XML fields.
 
 Definition: field_name: [xpath, extractor, [post_process]]
 
@@ -12,7 +12,7 @@ Performance notes:
     single > all > xpath
     specify index [1] where possible
 """
-struct = {
+uniprot_model = {
     'entryId': [
         './up:accession[1]',
         text(),
@@ -129,5 +129,3 @@ Struct removed entries:
     # ],
     
 """
-
-max_key_len = max(len(k) for k in struct)

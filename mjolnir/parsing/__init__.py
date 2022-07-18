@@ -1,4 +1,4 @@
 from . import post_processing, xpath
-from .uniprot_fields import struct, max_key_len
+from .uniprot_xml import uniprot_model
 
-__all__ = ['post_processing', 'xpath', 'struct', 'max_key_len']
+__all__ = ['post_processing', 'xpath', 'uniprot_model']
