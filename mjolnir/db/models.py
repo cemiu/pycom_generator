@@ -1,10 +1,12 @@
 
+# todo: load queries dynamically from a model, instead of hardcoding them
 
 """sqlite models file"""
 tables_and_indices = {
     'entry': ['''
     CREATE TABLE IF NOT EXISTS entry (
-        entryId TEXT PRIMARY KEY,
+        pk INTEGER PRIMARY KEY AUTOINCREMENT,
+        entryId TEXT,
         dateModified TEXT,
         entryName TEXT,
         fullName TEXT,
@@ -12,20 +14,14 @@ tables_and_indices = {
         organismId TEXT,
         sequence TEXT,
         sequenceLength INTEGER,
-        makeupHelix REAL,
-        makeupTurn REAL,
-        makeupStrand REAL,
+        structHelix REAL,
+        structTurn REAL,
+        structStrand REAL,
+        structure TEXT,
         hasAlphaFoldStructure BOOL,
         hasPTM BOOL
-    )''', '''
-    CREATE INDEX IF NOT EXISTS entry_organismId ON entry (organismId)
-    ''', '''
-    CREATE INDEX IF NOT EXISTS entry_helix ON entry (makeupHelix)
-    ''', '''
-    CREATE INDEX IF NOT EXISTS entry_turn ON entry (makeupTurn)
-    ''', '''
-    CREATE INDEX IF NOT EXISTS entry_strand ON entry (makeupStrand)
-    '''],
+    )'''],  # index: entryId, organismId?, structH/T/S
+
     'organism': ['''
     CREATE TABLE IF NOT EXISTS organism (
         organismId TEXT PRIMARY KEY,
@@ -33,6 +29,7 @@ tables_and_indices = {
         nameCommon TEXT,
         taxonomy TEXT
     )'''],
+
     'disease': ['''
     CREATE TABLE IF NOT EXISTS disease (
         diseaseId TEXT PRIMARY KEY,
@@ -41,66 +38,77 @@ tables_and_indices = {
         diseaseDescription TEXT,
         diseaseMIM TEXT
     )'''],
+
+    # todo maybe change pk?
     'disease_entry': ['''
     CREATE TABLE IF NOT EXISTS disease_entry (
         pk INTEGER PRIMARY KEY AUTOINCREMENT,
         entryId TEXT,
-        diseaseId TEXT,
-        description TEXT
-    )''', '''
-    CREATE INDEX IF NOT EXISTS disease_entry_entryId ON disease_entry (entryId)
-    '''],
-    'secondary_structure': ['''
-    CREATE TABLE IF NOT EXISTS secondary_structure (
-        entryId TEXT,
-        type TEXT,
-        begin INTEGER,
-        end INTEGER,
-        PRIMARY KEY (entryId, begin, end)
-    )''', '''
-    CREATE INDEX IF NOT EXISTS secondary_structure_entryId ON secondary_structure (entryId)
-    '''],
+        diseaseId TEXT
+    )'''],
+
     'keyword': ['''
     CREATE TABLE IF NOT EXISTS keyword (
+        pk INTEGER PRIMARY KEY AUTOINCREMENT,
         entryId TEXT,
-        keyword TEXT,
-        PRIMARY KEY (entryId, keyword)
+        keyword TEXT
     )''', '''
     CREATE INDEX IF NOT EXISTS keyword_entryId ON keyword (entryId)
     '''],
+
+    # removed composite pk
     'experimentPDB': ['''
     CREATE TABLE IF NOT EXISTS experimentPDB (
+        pk INTEGER PRIMARY KEY AUTOINCREMENT,
         entryId TEXT,
-        pdbId TEXT,
-        PRIMARY KEY (entryId, pdbId)
+        pdbId TEXT
     )''', '''
     CREATE INDEX IF NOT EXISTS experimentPDB_entryId ON experimentPDB (entryId)
     '''],
+
+    # no pk, index by entryId and (1,2,3,4)
     'enzyme_class': ['''
     CREATE TABLE IF NOT EXISTS enzyme_class (
-        entryId TEXT,
-        enzymeClass TEXT,
-        PRIMARY KEY (entryId, enzymeClass)
-    )''', '''
-    CREATE INDEX IF NOT EXISTS enzyme_class_entryId ON enzyme_class (entryId)
-    '''],
-    'cath_class': ['''
-    CREATE TABLE IF NOT EXISTS cath_class (
-        entryId TEXT,
-        cathClass TEXT,
-        PRIMARY KEY (entryId, cathClass)
-    )''', '''
-    CREATE INDEX IF NOT EXISTS cath_class_entryId ON cath_class (entryId)
-    '''],
-    'cofactor': ['''
-    CREATE TABLE IF NOT EXISTS cofactor (
         pk INTEGER PRIMARY KEY AUTOINCREMENT,
         entryId TEXT,
-        cofactorId TEXT,
-        cofactorName TEXT
+        enzyme_1 TEXT,
+        enzyme_2 TEXT,
+        enzyme_3 TEXT,
+        enzyme_4 TEXT
     )''', '''
-    CREATE INDEX IF NOT EXISTS cofactor_entryId ON cofactor (entryId)
+    CREATE INDEX IF NOT EXISTS enzyme_class_entryId ON enzyme_class (entryId)
+    ''', '''
+    CREATE INDEX IF NOT EXISTS enzyme_class_ec ON enzyme_class (enzyme_1, enzyme_2, enzyme_3, enzyme_4)
     '''],
+
+    'cath_class': ['''
+    CREATE TABLE IF NOT EXISTS cath_class (
+        pk INTEGER PRIMARY KEY AUTOINCREMENT,
+        entryId TEXT,
+        cath_1 TEXT,
+        cath_2 TEXT,
+        cath_3 TEXT,
+        cath_4 TEXT
+    )''', '''
+    CREATE INDEX IF NOT EXISTS cath_entryId ON cath_class (entryId)
+    ''', '''
+    CREATE INDEX IF NOT EXISTS cath_cath_id ON cath_class (cath_1, cath_2, cath_3, cath_4)
+    '''],
+
+    # create cofactorId <-> cofactorName table, and another entryId <-> cofactorId table, w/o duplicates in either
+    'cofactor': ['''
+    CREATE TABLE IF NOT EXISTS cofactor (
+        cofactorId TEXT PRIMARY KEY,
+        cofactorName TEXT
+    )'''],
+
+    'cofactor_entry': ['''
+    CREATE TABLE IF NOT EXISTS cofactor_entry (
+        pk INTEGER PRIMARY KEY AUTOINCREMENT,
+        entryId TEXT,
+        cofactorId TEXT
+    )'''],
+
     'substrate': ['''
     CREATE TABLE IF NOT EXISTS substrate (
         pk INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,14 +116,13 @@ tables_and_indices = {
         substrateName TEXT,
         enzymeClass TEXT,
         rheaId TEXT
-    )''', '''
-    CREATE INDEX IF NOT EXISTS substrate_entryId ON substrate (entryId)
-    '''],
+    )'''],
 }
 
 """
 List of unused tables:
 
+    # removed ability to query by secondary accession
     'entry_id_map': ['''
     CREATE TABLE IF NOT EXISTS entry_id_map (
         entryId TEXT,
@@ -127,7 +134,17 @@ List of unused tables:
     CREATE INDEX IF NOT EXISTS entry_id_map_accessionId ON entry_id_map (accessionId)
     '''],
     
-    
+    # will instead store structures in main table, in a concatenated format
+    'secondary_structure': ['''
+    CREATE TABLE IF NOT EXISTS secondary_structure (
+        entryId TEXT,
+        type TEXT,
+        begin INTEGER,
+        end INTEGER,
+        PRIMARY KEY (entryId, begin, end)
+    )''', '''
+    CREATE INDEX IF NOT EXISTS secondary_structure_entryId ON secondary_structure (entryId)
+    '''],
 
 
 """

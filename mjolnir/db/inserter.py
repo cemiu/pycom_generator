@@ -1,27 +1,38 @@
-import lxml.etree as ET
+import json
 from datetime import datetime
 
-from mjolnir import config
 from mjolnir.parsing.xpath import *
+
+q_organism = 'INSERT OR IGNORE INTO organism (organismId, nameScientific, nameCommon, taxonomy) VALUES (?, ?, ?, ?)'
+q_disease = 'INSERT OR IGNORE INTO disease (diseaseId, diseaseName, diseaseAcronym, diseaseDescription, ' \
+            'diseaseMIM) VALUES (?, ?, ?, ?, ?)'
+
+q_entry = 'INSERT INTO entry (entryId, dateModified, entryName, fullName, shortName, organismId, sequence, ' \
+          'sequenceLength, structHelix, structTurn, structStrand, structure, hasAlphaFoldStructure, hasPTM) ' \
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+q_keyword = 'INSERT INTO keyword (entryId, keyword) VALUES (?, ?)'
+q_disease_entry = 'INSERT INTO disease_entry (entryId, diseaseId) VALUES (?, ?)'
+q_pdb = 'INSERT INTO experimentPDB (entryId, pdbId) VALUES (?, ?)'
+q_ec = 'INSERT INTO enzyme_class (entryId, enzyme_1, enzyme_2, enzyme_3, enzyme_4) VALUES (?, ?, ?, ?, ?)'
+q_cath = 'INSERT INTO cath_class (entryId, cath_1, cath_2, cath_3, cath_4) VALUES (?, ?, ?, ?, ?)'
+q_cofactor = 'INSERT OR IGNORE INTO cofactor (cofactorId, cofactorName) VALUES (?, ?)'
+q_cofactor_entry = 'INSERT INTO cofactor_entry (entryId, cofactorId) VALUES (?, ?)'
+q_substrate = 'INSERT INTO substrate (entryId, substrateName, enzymeClass, rheaId) VALUES (?, ?, ?, ?)'
+
 
 def insert_organism(db, entry):
     """Inserts an organism into the database, if it doesn't exist."""
-    # organism_exists = db.exists('organism', 'organismId', entry['organismNcbiId'])
-    organism_exists = False  # todo remove
-    if not organism_exists:
-        db.insert_data('organism', {
-            'organismId': entry['organismNcbiId'],
-            'nameScientific': entry['organismScientificName'],
-            'nameCommon': entry['organismCommonName'],
-            'taxonomy': ':'.join(entry['taxonomy']),
-        }, ignore_duplicates=True)
-
-    return organism_exists
+    organism_data = (
+        entry['organismNcbiId'],  # organismId
+        entry['organismScientificName'],  # nameScientific
+        entry['organismCommonName'],  # nameCommon
+        f":{':'.join(entry['taxonomy'])}:"  # taxonomy
+    )
+    db.insert(q_organism, organism_data)
 
 
 def insert_diseases(db, entry):
     """Inserts a disease into the database, if it doesn't exist."""
-    inserted = False
     for disease in entry['diseases']:
         disease_id = attrib('id')(disease, './up:disease')
         if disease_id is None:
@@ -32,18 +43,15 @@ def insert_diseases(db, entry):
         if disease_exists:
             continue
 
-        disease_data = {
-            'diseaseId': disease_id,
-            'diseaseName': text()(disease, './up:disease/up:name'),
-            'diseaseAcronym': text()(disease, './up:disease/up:acronym'),
-            'diseaseDescription': text()(disease, './up:disease/up:description'),
-            'diseaseMIM': attrib('id')(disease, './up:disease/up:dbReference[@type="MIM"]')
-        }
+        disease_data = (
+            disease_id,  # diseaseId
+            text()(disease, './up:disease/up:name'),  # diseaseName
+            text()(disease, './up:disease/up:acronym'),  # diseaseAcronym
+            text()(disease, './up:disease/up:description'),  # diseaseDescription
+            attrib('id')(disease, './up:disease/up:dbReference[@type="MIM"]')  # diseaseMIM
+        )
 
-        db.insert_data('disease', disease_data, ignore_duplicates=True)
-        inserted = True
-
-    return inserted
+        db.insert(q_disease, disease_data)
 
 
 def insert_entry(db, entry):
@@ -53,86 +61,73 @@ def insert_entry(db, entry):
         'strand': entry['structureStrand'],
     }
 
+    sec_struct_ranges = {}
+    for struct_type, ranges in sec_struct.items():
+        sec_struct_ranges[struct_type] = ranges[1]
+
+    struct_ranges_json = json.dumps(sec_struct_ranges)
+
+    entry_id = entry['entryId']
     current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    entry_data = {
-        'entryId': entry['entryId'],
-        'dateModified': current_date,
-        'entryName': entry['entryName'],
-        'fullName': entry['fullName'],
-        'shortName': entry['shortName'],
-        'organismId': entry['organismNcbiId'],
-        'sequence': entry['sequence'],
-        'sequenceLength': entry['sequenceLength'],
-        'makeupHelix': sec_struct['helix'][0],
-        'makeupTurn': sec_struct['turn'][0],
-        'makeupStrand': sec_struct['strand'][0],
-        'hasAlphaFoldStructure': entry['hasAlphaFoldStructure'],
-        'hasPTM': entry['hasPTM'],
-    }
+    entry_data = (
+        entry_id,  # entryId
+        current_date,  # dateModified
+        entry['entryName'],  # entryName
+        entry['fullName'],  # fullName
+        entry['shortName'],  # shortName
+        entry['organismNcbiId'],  # organismId
+        entry['sequence'],  # sequence
+        entry['sequenceLength'],  # sequenceLength
+        sec_struct['helix'][0],  # structHelix
+        sec_struct['turn'][0],  # structTurn
+        sec_struct['strand'][0],  # structStrand
+        struct_ranges_json,  # structure
+        entry['hasAlphaFoldStructure'],  # hasAlphaFoldStructure
+        entry['hasPTM'],  # hasPTM
+    )
 
-    db.insert_data('entry', entry_data)
+    db.insert(q_entry, entry_data)
 
-    for accession in entry['accessions']:
-        db.insert_data('entry_id_map', {
-            'entryId': entry['entryId'],
-            'accessionId': accession,
-        })
+    # Keywords: entryId, keyword
+    keyword_data = [(entry_id, keyword) for keyword in entry['keywords']]
+    db.insert_many(q_keyword, keyword_data)
 
-    for keyword in entry['keywords']:
-        db.insert_data('keyword', {
-            'entryId': entry['entryId'],
-            'keyword': keyword,
-        })
+    # Diseases: entryId, diseaseId
+    disease_data = [(
+        entry_id,  # entryId
+        attrib('id')(disease, './up:disease')  # diseaseId
+    ) for disease in entry['diseases']]
+    db.insert_many(q_disease_entry, disease_data)
 
-    for disease in entry['diseases']:
-        db.insert_data('disease_entry', {
-            'entryId': entry['entryId'],
-            'diseaseId': attrib('id')(disease, './up:disease'),
-            'description': text()(disease, './up:text'),
-        })
+    # Experiment PDBs
+    pdb_data = [(entry_id, pdb_id) for pdb_id in entry['pdbIds']]
+    db.insert_many(q_pdb, pdb_data)
 
-    for pdb in entry['experimentPDBIds']:
-        db.insert_data('experimentPDB', {
-            'entryId': entry['entryId'],
-            'pdbId': pdb,
-        })
-
+    # Enzyme Class: entryId, enzyme_1, enzyme_2, enzyme_3, enzyme_4
+    ec_dict = {}
     for ec in entry['enzymeClassId']:
-        db.insert_data('enzyme_class', {
-            'entryId': entry['entryId'],
-            'enzymeClass': ec,
-        }, ignore_duplicates=True)
+        ec_dict[ec] = tuple([entry_id] + ec.split('.'))
 
-    for cath in entry['cathClassId']:
-        db.insert_data('cath_class', {
-            'entryId': entry['entryId'],
-            'cathClass': cath,
-        })
+    db.insert_many(q_ec, ec_dict.values())
 
-    for strucType, composition in sec_struct.items():
-        for r in composition[1]:
-            db.insert_data('secondary_structure', {
-                'entryId': entry['entryId'],
-                'type': strucType,
-                'begin': r[0],
-                'end': r[1],
-            })
+    # Cath Class
+    cath_data = [tuple([entry_id] + cath_id.split('.')) for cath_id in entry['cathClassId']]
+    db.insert_many(q_cath, cath_data)
+
+    # Cofactor & Cofactor Entries
+    cofactor_entries, cofactor_data = {}, []
 
     for cofactor in entry['cofactors']:
         c_name = text()(cofactor, './up:name')
         c_id = attrib('id')(cofactor, './up:dbReference[@type="ChEBI"]')
-        db.insert_data('cofactor', {
-            'entryId': entry['entryId'],
-            'cofactorName': c_name,
-            'cofactorId': c_id,
-        })
 
-    for substrate in entry['substrates']:
-        name, ec, rhea = substrate
-        db.insert_data('substrate', {
-            'entryId': entry['entryId'],
-            'substrateName': name,
-            'enzymeClass': ec,
-            'rheaId': rhea,
-        })
+        cofactor_data.append((c_id, c_name))
+        cofactor_entries[c_id] = (entry['entryId'], c_id)
+
+    db.insert_many(q_cofactor, cofactor_data)
+    db.insert_many(q_cofactor_entry, cofactor_entries.values())
+
+    # Substrate: entryId, substrateName, enzymeClass, rheaId
+    substrate_data = [(entry_id,) + substrate for substrate in entry['substrates']]
+    db.insert_many(q_substrate, substrate_data)

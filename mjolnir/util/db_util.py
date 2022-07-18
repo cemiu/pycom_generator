@@ -19,12 +19,14 @@ class DBUtil:
         self.conn = _create_db(db_file, compression) if init else _load_db(db_file, compression, read_only)
         self.c = self.conn.cursor()
 
-    def insert_data(self, table_name, data, ignore_duplicates=False):
-        extra = ' OR IGNORE ' if ignore_duplicates else ' '
-        self.c.execute("INSERT" + extra + "INTO {} ({}) VALUES ({})"
-                       .format(table_name, ', '.join(data.keys()), ', '.join(['?'] * len(data))), tuple(data.values()))
-
+    def insert(self, query, data):
+        self.c.execute(query, data)
         self.soft_commit()
+
+    def insert_many(self, query, data):
+        if not data:
+            return
+        self.c.executemany(query, data)
 
     def select_data(self, table_name, columns, where_clause):
         self.c.execute("SELECT {} FROM {} WHERE {}".format(columns, table_name, where_clause))
@@ -80,7 +82,7 @@ _args_read_only = 'mode=ro'
 
 def _load_db(db_file, compression, read_only=False):
     """Opens an SQLite database."""
-    conn = sqlite3.connect(':memory:')
+    conn = sqlite3.connect(':memory:', isolation_level='DEFERRED')
     if compression:
         conn.enable_load_extension(True)
         conn.load_extension(_compression_ext)
@@ -94,7 +96,8 @@ def _load_db(db_file, compression, read_only=False):
     args = '&'.join(args_used)
     args = '?' + args if args else ''
 
-    conn = sqlite3.connect(f'file:{db_file}')
+    conn = sqlite3.connect(f'file:{db_file}{args}', isolation_level='DEFERRED')
+    logging.info(f'Opened database {db_file}{args}.')
 
     conn.execute('PRAGMA page_size=65536;')  # max page size
     conn.execute('PRAGMA cache_size=-102400')  # 100 MB
@@ -113,7 +116,7 @@ def _create_db(db_file, compression):
     for table, queries in tables_and_indices.items():
         for query in queries:
             conn.execute(query)
-            # break  # todo remove, skip creating indices for now
+            break  # only create tables, skip indices
 
     conn.commit()
     return conn
