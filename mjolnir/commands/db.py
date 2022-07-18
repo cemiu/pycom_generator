@@ -10,6 +10,9 @@ def db(args):
     database = None
 
     if args.init:
+        # todo remove: temp: remove database if extension is .db
+        if os.path.exists(args.location) and os.path.splitext(args.location)[1] == '.db':
+            os.remove(args.location)
         logging.info(f'Initializing database at {args.location}')
         database = DBUtil(args.location, init=True,
                           compression=config['enable_compression'], commit_frequency=config['commit_frequency'])

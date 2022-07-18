@@ -1,6 +1,5 @@
 
 import sys
-import logging
 
 from argparse import ArgumentParser
 from collections import namedtuple
@@ -114,11 +113,6 @@ def get_parser():
 
 
 def main():
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)s: %(message)s',
-        level=logging.INFO,
-    )
-
     parser = get_parser()
     args = parser.parse_args()
 
@@ -131,6 +125,6 @@ def main():
     except KeyboardInterrupt:
         print('\nInterrupted by user.')
         sys.exit(1)
-    except Exception as e:
-        print('\nError:', e)
-        sys.exit(1)
+    # except Exception:
+    #     print(traceback.format)
+    #     sys.exit(1)

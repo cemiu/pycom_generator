@@ -4,7 +4,7 @@ config = {
     '_debug': False,
     'email': None,  # for uniprot request header
     'enable_compression': False,  # todo change to True later
-    'commit_frequency': 500,
+    'commit_frequency': 50000,
 }
 
 
