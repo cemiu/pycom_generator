@@ -89,7 +89,7 @@ uniprot_model = {
         './up:keyword',
         alltext(),
     ],
-    'diseaseId': [  # TODO not all diseases have ids! P14568
+    'diseaseId': [
         './up:comment[@type="disease"]/up:disease',
         allattrib('id'),
     ],
@@ -101,14 +101,10 @@ uniprot_model = {
         './up:comment[@type="PTM"]',
         exists(first),
     ],
-    'cofactors': [  # name or id?
+    'cofactors': [
         './up:comment[@type="cofactor"]/up:cofactor',
         allraw(),
     ],
-    # 'substrate': [  # txt or db?
-    #     './up:comment[@type="catalytic activity"]/up:reaction/up:text',
-    #     alltext(),
-    # ],
     'substrates': [
         './up:comment[@type="catalytic activity"]/up:reaction',
         allraw(),
@@ -119,13 +115,3 @@ uniprot_model = {
         exists(xpath),
     ],
 }
-
-"""
-Struct removed entries:
-
-    # 'accessions': [
-    #     './up:accession',
-    #     alltext(),
-    # ],
-    
-"""

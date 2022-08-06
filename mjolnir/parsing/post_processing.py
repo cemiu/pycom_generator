@@ -1,5 +1,6 @@
 from mjolnir.parsing.xpath import *
 
+
 def post(f, *fields):
     return f, *fields
 
@@ -20,8 +21,8 @@ def post_struc(structures, sequence_length):
         tally += end - begin + 1
 
     percent = tally / sequence_length if sequence_length else 0
-    # print(f'{percent:.2%}')
     return percent, ranges
+
 
 def post_substrate(substrates):
     # [(text, dbref="EC", dbref="Rhea")]

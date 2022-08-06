@@ -1,8 +1,10 @@
+import gzip
 import logging
 import os
 import time
-from io import BufferedReader, FileIO
-import gzip
+from io import BufferedReader
+
+from .format import format_bytes
 
 _print_verbose = False
 
@@ -22,6 +24,7 @@ class Reader(BufferedReader):
 
         # parse file progress rather than data progress for gzip files
         if mode == 'gz':
+            # noinspection PyUnresolvedReferences
             stream.tell = stream.fileobj.tell
 
         self.reader = stream
@@ -30,6 +33,7 @@ class Reader(BufferedReader):
         self.progress = Progress(self.length)
         self._callback = self.progress.update
 
+        # noinspection PyTypeChecker
         super().__init__(raw=stream)
 
     def read(self, size=None):
@@ -57,19 +61,12 @@ class Progress:
 
         time_elapsed = time.time() - self.start
         speed = self.position / time_elapsed
-        eta = self.total_sz / speed - time_elapsed
-        eta_days = f'{int(eta // (24 * 3600))}d ' if eta // (24 * 3600) >= 1 else ''
-        out_eta = f'; {eta_days}{time.strftime("%H:%M:%S", time.gmtime(eta))}h left'
-        speed_format = f'{format_bytes(speed)}/s' if _print_verbose else ''
-        return f'{percent:.2%}; {sz_cur}/{sz_total}; {speed_format}{out_eta}'
+        speed_info = ''
+        if speed > 0:
+            eta = self.total_sz / speed - time_elapsed
+            eta_days = f'{int(eta // (24 * 3600))}d ' if eta // (24 * 3600) >= 1 else ''
+            out_eta = f'; {eta_days}{time.strftime("%H:%M:%S", time.gmtime(eta))}h left'
+            speed_format = f'{format_bytes(speed)}/s' if _print_verbose else ''
+            speed_info = f'; {speed_format}{out_eta}'
+        return f'{percent:.2%}; {sz_cur}/{sz_total}{speed_info}'
 
-
-def format_bytes(size):
-    # 2**10 = 1024
-    power = 2 ** 10
-    n = 0
-    power_labels = {0: '', 1: 'K', 2: 'M', 3: 'G', 4: 'T'}
-    while size > power and n < 4:
-        size /= power
-        n += 1
-    return f'{size:.2f}{power_labels[n]}B'

@@ -1,3 +1,0 @@
-
-def config(args):
-    pass

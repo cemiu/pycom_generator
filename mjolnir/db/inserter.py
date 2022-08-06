@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 
 from mjolnir.parsing.xpath import *
 
@@ -7,9 +6,9 @@ q_organism = 'INSERT OR IGNORE INTO organism (organismId, nameScientific, nameCo
 q_disease = 'INSERT OR IGNORE INTO disease (diseaseId, diseaseName, diseaseAcronym, diseaseDescription, ' \
             'diseaseMIM) VALUES (?, ?, ?, ?, ?)'
 
-q_entry = 'INSERT INTO entry (entryId, dateModified, entryName, fullName, shortName, organismId, sequence, ' \
-          'sequenceLength, structHelix, structTurn, structStrand, structure, hasAlphaFoldStructure, hasPTM) ' \
-          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+q_entry = 'INSERT INTO entry (entryId, entryName, fullName, shortName, organismId, sequence, sequenceLength, ' \
+          'structHelix, structTurn, structStrand, structure, hasAlphaFoldStructure, hasPTM, dateModified) ' \
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime("now"))'
 q_keyword = 'INSERT INTO keyword (entryId, keyword) VALUES (?, ?)'
 q_disease_entry = 'INSERT INTO disease_entry (entryId, diseaseId) VALUES (?, ?)'
 q_pdb = 'INSERT INTO experimentPDB (entryId, pdbId) VALUES (?, ?)'
@@ -61,18 +60,20 @@ def insert_entry(db, entry):
         'strand': entry['structureStrand'],
     }
 
+    # map 'x': (%, [ranges]) to 'x': [ranges]
     sec_struct_ranges = {}
     for struct_type, ranges in sec_struct.items():
         sec_struct_ranges[struct_type] = ranges[1]
 
-    struct_ranges_json = json.dumps(sec_struct_ranges)
+    # convert to json if there are any structures
+    are_sec_struct = sum(len(x) for x in sec_struct_ranges.values()) > 0
+    struct_ranges_json = json.dumps(sec_struct_ranges) if are_sec_struct else None
 
     entry_id = entry['entryId']
-    current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     entry_data = (
         entry_id,  # entryId
-        current_date,  # dateModified
+        # current_date,  # dateModified
         entry['entryName'],  # entryName
         entry['fullName'],  # fullName
         entry['shortName'],  # shortName

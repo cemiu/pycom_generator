@@ -1,23 +1,30 @@
 import logging
 import os
 import sqlite3
+import sys
 
 from mjolnir import config
-from mjolnir.db import tables_and_indices
-from mjolnir.experiment import p  # TODO remove
+from .info_util import InfoUtil
+
+_byte_info_cutoff = 1024 ** 3  # 1 GB
 
 
 class DBUtil:
-    def __init__(self, db_file, init=False, compression=True, read_only=False, commit_frequency=1):
+    def __init__(self, db_file, db_model, init=False, compression=True, read_only=False, commit_frequency=1):
         self.db_file = db_file
+        self.db_model = db_model
         if not os.path.exists(db_file) and not init:
             raise Exception(f'Database {db_file} does not exist. Use [db --init] to create a new database.')
 
         self.last_commit = 0
         self.commit_frequency = commit_frequency
 
-        self.conn = _create_db(db_file, compression) if init else _load_db(db_file, compression, read_only)
-        self.c = self.conn.cursor()
+        self.con = _create_db(db_file, db_model, compression) if init else _load_db(db_file, compression, read_only)
+        self.c = self.con.cursor()
+
+        self.print_info = self.c.execute(
+            'SELECT page_count * page_size AS size FROM pragma_page_count(), pragma_page_size()'
+        ).fetchone()[0] > _byte_info_cutoff
 
     def insert(self, query, data):
         self.c.execute(query, data)
@@ -28,53 +35,42 @@ class DBUtil:
             return
         self.c.executemany(query, data)
 
-    def select_data(self, table_name, columns, where_clause):
-        self.c.execute("SELECT {} FROM {} WHERE {}".format(columns, table_name, where_clause))
-        return self.c.fetchall()
+    def indices_create(self):
+        """Creates all indices in DB, from model."""
+        _indices_create(self.c, self.db_model, self.print_info)
+        self.hard_commit()
 
-    def update_data(self, table_name, data, where_clause):
-        self.c.execute("UPDATE {} SET {} WHERE {}".format(table_name, data, where_clause))
-        self.soft_commit()
+    def indices_drop(self):
+        """Drops all indices in DB except for auto-indices."""
+        _indices_drop(self.c, self.print_info)
+        self.hard_commit()
 
-    def delete_data(self, table_name, where_clause):
-        self.c.execute("DELETE FROM {} WHERE {}".format(table_name, where_clause))
-        self.soft_commit()
-
-    def exists(self, table_name, column, value):
-        self.c.execute("SELECT COUNT(*) FROM {} WHERE {} = ?".format(table_name, column), (value,))
-        return self.c.fetchone()[0] > 0
-
-    def sql_query(self, query, hard_commit=False):
-        self.c.execute(query)
-        self.hard_commit() if hard_commit else self.soft_commit()
-        return self.c.fetchall()
-
-    def sql_post(self, query, hard_commit=False):
-        self.c.execute(query)
-        self.hard_commit() if hard_commit else self.soft_commit()
-
-    def sql_get(self, query):
-        self.c.execute(query)
-        return self.c.fetchall()
+    def calc_size(self):
+        byte_count = self.print_info = self.c.execute(
+            'SELECT page_count * page_size AS size FROM pragma_page_count(), pragma_page_size()'
+        ).fetchone()[0]
+        self.print_info = byte_count > _byte_info_cutoff
+        return byte_count
 
     def soft_commit(self):
+        """Commit to database if commit_frequency has been reached."""
         self.last_commit += 1
         if self.last_commit >= self.commit_frequency:
             self.hard_commit()
 
     def hard_commit(self):
-        self.conn.commit()
+        """Commit to database."""
+        self.con.commit()
         self.last_commit = 0
-        if config['_debug']:
-            logging.info('Committed to database.')
+        self.calc_size()
 
     def close(self):
         self.hard_commit()
         self.c.close()
-        self.conn.close()
+        self.con.close()
 
 
-_compression_ext = p.zsdt_vfs  # TODO give ability to override this with config
+_compression_ext = config['sqlite_zsdt_vfs_path']
 
 _args_compression = 'vfs=zstd&level=6&outer_page_size=2048'
 _args_read_only = 'mode=ro'
@@ -82,11 +78,9 @@ _args_read_only = 'mode=ro'
 
 def _load_db(db_file, compression, read_only=False):
     """Opens an SQLite database."""
-    conn = sqlite3.connect(':memory:', isolation_level='DEFERRED')
+    con = sqlite3.connect(':memory:', isolation_level='DEFERRED')
     if compression:
-        conn.enable_load_extension(True)
-        conn.load_extension(_compression_ext)
-        conn.enable_load_extension(False)
+        _load_extension(con)
 
     # args = '?a' | '?b' | '?a&b' | ''
     args_used = filter(None, [
@@ -96,30 +90,83 @@ def _load_db(db_file, compression, read_only=False):
     args = '&'.join(args_used)
     args = '?' + args if args else ''
 
-    conn = sqlite3.connect(f'file:{db_file}{args}', isolation_level='DEFERRED')
+    try:
+        con = sqlite3.connect(f'file:{db_file}{args}', uri=True, isolation_level='DEFERRED')
+    except sqlite3.OperationalError as e:
+        if 'unable to open database file' not in str(e):
+            logging.error(e)
+        else:
+            logging.error(f'Failed to open database {db_file}, is it already in use?.')
+        sys.exit(1)
+
+    con.execute('PRAGMA page_size=65536;')  # max page size
+    con.execute('PRAGMA cache_size=-102400')  # 100 MB
+
     logging.info(f'Opened database {db_file}{args}.')
 
-    conn.execute('PRAGMA page_size=65536;')  # max page size
-    conn.execute('PRAGMA cache_size=-102400')  # 100 MB
-
-    return conn
+    return con
 
 
-def _create_db(db_file, compression):
+def _create_db(db_file, db_model, compression):
     """Used to initialize a new SQLite database."""
     db_folder = os.path.dirname(db_file)
     if not os.path.exists(db_folder):
         os.makedirs(db_folder)
 
-    conn = _load_db(db_file, compression)
+    con = _load_db(db_file, compression)
 
-    for table, queries in tables_and_indices.items():
-        for query in queries:
-            conn.execute(query)
-            break  # only create tables, skip indices
+    for table_query, _ in db_model.values():
+        con.execute(table_query)
 
-    conn.commit()
-    return conn
+    con.commit()
+    return con
+
+
+def _indices_drop(c, log):
+    c.execute('SELECT name FROM sqlite_master WHERE type == "index" and name NOT LIKE "sqlite_autoindex_%"')
+    indices = [index[0] for index in c.fetchall()]
+    if len(indices) == 0:
+        return
+
+    index_drop_info = InfoUtil(len(indices), action='dropping indices', intvl=1, rate_mult=1, log=log)
+
+    for index in indices:
+        c.execute(f'DROP INDEX IF EXISTS {index}')
+        next(index_drop_info)
+
+    index_drop_info.finish()
+
+
+def _indices_create(c, db_model, log):
+    number_of_indexes = sum(len(indices) for _, indices in db_model.values())
+    info = InfoUtil(number_of_indexes, action='creating indices', intvl=1, rate_mult=1, log=log)
+
+    info.log(f'Creating {number_of_indexes} indices. This may take a while.')
+    info.log('Initial estimates will be multiple times the expected time.')
+
+    for _, indices in db_model.values():
+        for index in indices:
+            c.execute(index)
+            next(info)
+
+    info.finish()
+
+
+def _load_extension(con):
+    """Loads the compression extension into the database."""
+    if not os.path.exists(_compression_ext):
+        logging.critical(f'Attempted to enable compression, but compression extension was '
+                         f'not found at {_compression_ext}. Building instructions can be found at: '
+                         f'https://github.com/mlin/sqlite_zstd_vfs, or set the path the config.')
+        raise Exception(f'Compression extension not found at {_compression_ext}')
+    con.enable_load_extension(True)
+    try:
+        con.load_extension(_compression_ext)
+    except sqlite3.OperationalError as e:
+        logging.critical(f'Failed to load compression extension at {_compression_ext}. '
+                         f'Is your operating system supported?')
+        raise e
+    con.enable_load_extension(False)
 
 
 __all__ = ['DBUtil']
