@@ -1,42 +1,79 @@
 import lxml.etree as etree
-import gzip
-import logging
 
-# default uniprot xml tag
+from mjolnir.util import Reader, InfoUtil
+
 tag_up = '{http://uniprot.org/uniprot}'
 tag_entry = f'{tag_up}entry'
 
 
-def parse(file, mode=None, tag=tag_entry):
-    """Return an iterative parser for XML files.
+class Parser:
+    """A parser for XML files"""
 
-    Files can be either raw XML files or gzipped XML files. (xml.gz)
-    Tarballs cannot be parsed.
+    def __init__(self, file, info=False, skip=float('nan'), abort_after=float('nan')):
+        self.file = file
 
-    Usage:
-        for entry in parse_xml(file):
-            # do something with ET entry
-    """
-    logging.info(f'Parsing {file}')
+        self.skip = float('nan') if skip == 0 else skip
+        self.abort_after = float('nan') if abort_after is None else abort_after
 
-    if mode is None:
-        mode = 'gz' if file.endswith('.gz') else 'xml'
-        logging.info(f'Parsing mode: {mode}')
+        self.reader = Reader(file)
+        self.progress = self.reader.progress
+        self.info = InfoUtil(file_progress=self.progress, log=info)
 
-    stream = gzip.open(file) if mode == 'gz' else (file if mode == 'xml' else None)
-
-    if stream is None:
-        raise ValueError(f'Unknown mode {mode}, must be "xml" or "gz"')
-
-    for elem in iterparse(stream, tag=tag):
-        yield elem
+    def __iter__(self):
+        for elem in _iterparse(self.reader, skip=self.skip, abort_after=self.abort_after):
+            yield elem
+            next(self.info)
+        self.info.finish()
 
 
-def iterparse(xml, tag=tag_entry):
+class ModelParser(Parser):
+    """A parser for XML files, taking in XPath parsing models."""
+
+    def __init__(self, file, info=False, model=None, skip=float('nan'), abort_after=float('nan')):
+        if model is None:
+            raise ValueError('ModelParser requires a model')
+
+        skip = float('nan') if skip == 0 else skip
+        abort_after = float('nan') if abort_after is None else abort_after
+
+        super().__init__(file, info, skip, abort_after)
+        self.model = model
+
+    def __iter__(self):
+        """Return an iterative parser for XML files."""
+        for elem in super().__iter__():
+            results = {}  # result dict
+
+            for key, inst in self.model.items():
+                xpath, extractor, *post_process = inst
+
+                # extract data
+                datum = extractor(elem, xpath)
+
+                # apply post-processing, if specified
+                for proc in post_process:
+                    post_func, *fields = proc
+                    req_results = [results[field] for field in fields]  # required results
+                    datum = post_func(datum, *req_results)
+
+                results[key] = datum
+
+            yield results
+
+
+def _iterparse(xml, tag=tag_entry, skip=float('nan'), abort_after=float('nan')):
     """Process XML iteratively."""
     context = iter(etree.iterparse(xml, events=('start', 'end')))
     _, root = next(context)
+    entry_count = 0
+
     for event, elem in context:
         if event == 'end' and elem.tag == tag:
-            yield elem
+            entry_count += 1
+            if not skip > entry_count:
+                yield elem
+
             root.clear()  # clear root to keep memory usage low
+
+            if abort_after <= entry_count:
+                break

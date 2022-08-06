@@ -1,5 +1,5 @@
-
 ns = {'up': 'http://uniprot.org/uniprot'}
+
 
 def getattrib(x, at):
     """Get attribute from element.

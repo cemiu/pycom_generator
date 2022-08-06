@@ -1,4 +1,5 @@
-import lxml.etree as ET
+from mjolnir.parsing.xpath import *
+
 
 def post(f, *fields):
     return f, *fields
@@ -20,8 +21,17 @@ def post_struc(structures, sequence_length):
         tally += end - begin + 1
 
     percent = tally / sequence_length if sequence_length else 0
-    # print(f'{percent:.2%}')
     return percent, ranges
 
 
-__all__ = ['post', 'int_cast', 'post_struc']
+def post_substrate(substrates):
+    # [(text, dbref="EC", dbref="Rhea")]
+    out = []
+
+    for substrate in substrates:
+        name = text()(substrate, './up:text')
+        ec = attrib('id')(substrate, './up:dbReference[@type="EC"]')
+        rhea = attrib('id')(substrate, './up:dbReference[@type="Rhea"]')
+        out.append((name, ec, rhea))
+
+    return out

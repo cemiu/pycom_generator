@@ -1,10 +1,10 @@
 from mjolnir.parsing.post_processing import *
-from mjolnir.util.xpath_util import *
+from mjolnir.parsing.xpath import *
 
 
 _all_names = '*[self::up:recommendedName or self::up:alternativeName]'
 
-"""Structure defining the extraction strategy for the UniProt XML fields.
+"""Model defining the extraction strategy for the UniProt XML fields.
 
 Definition: field_name: [xpath, extractor, [post_process]]
 
@@ -12,14 +12,10 @@ Performance notes:
     single > all > xpath
     specify index [1] where possible
 """
-struct = {
+uniprot_model = {
     'entryId': [
         './up:accession[1]',
         text(),
-    ],
-    'secondaryIds': [
-        './up:accession',
-        alltext(),
     ],
     'entryName': [
         './up:name[1]',
@@ -36,16 +32,16 @@ struct = {
     'taxonomy': [
         './up:organism[1]/up:lineage[1]/up:taxon',
         alltext(),
-    ],  # TODO tax <-> spec mapping
+    ],
     'organismNcbiId': [
         './up:organism[1]/up:dbReference',
         attrib('id'),
     ],
-    'organismNameScientific': [
+    'organismScientificName': [
         './up:organism[1]/up:name[@type="scientific"]',
         text(),
     ],
-    'organismNameCommon': [
+    'organismCommonName': [
         './up:organism[1]/up:name[@type="common"]',
         text(),
     ],
@@ -58,7 +54,7 @@ struct = {
         './up:sequence',
         text(),
     ],
-    'experimentPDBIds': [
+    'pdbIds': [
         './up:dbReference[@type="PDB"]',
         allattrib('id'),
     ],
@@ -89,15 +85,15 @@ struct = {
         allraw(),
         post(post_struc, 'sequenceLength'),
     ],
-    'keyword': [
+    'keywords': [
         './up:keyword',
         alltext(),
     ],
-    'diseaseId': [  # TODO not all diseases have ids! P14568
+    'diseaseId': [
         './up:comment[@type="disease"]/up:disease',
         allattrib('id'),
     ],
-    'disease': [  # id <-> name mapping
+    'diseases': [  # id <-> name mapping
         './up:comment[@type="disease"]',
         allraw(),
     ],
@@ -105,20 +101,17 @@ struct = {
         './up:comment[@type="PTM"]',
         exists(first),
     ],
-    'cofactor': [  # name or id?
-        './up:comment[@type="cofactor"]/up:cofactor/up:name',
-        alltext(),
+    'cofactors': [
+        './up:comment[@type="cofactor"]/up:cofactor',
+        allraw(),
     ],
-    'substrate': [  # txt or db?
-        './up:comment[@type="catalytic activity"]/up:reaction/up:text',
-        alltext(),
+    'substrates': [
+        './up:comment[@type="catalytic activity"]/up:reaction',
+        allraw(),
+        post(post_substrate),
     ],
     'isDnaBinding': [
         './up:dbReference[@type="GO"]/up:property[@type="term" and contains(@value, "DNA binding")]',
         exists(xpath),
     ],
 }
-
-max_key_len = max(len(k) for k in struct)
-
-__all__ = ['struct', 'max_key_len']
