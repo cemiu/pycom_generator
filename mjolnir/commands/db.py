@@ -6,6 +6,7 @@ from mjolnir.db import db_load, models
 from mjolnir.util import DBUtil
 
 from mjolnir.util import exit_util as eu
+from mjolnir.util.error_util import silentremove
 
 
 def db(args):
@@ -19,7 +20,7 @@ def db(args):
             if not args.init_force:
                 eu.err_exit(f'Database already exists at {args.location}. Use --init-force to overwrite.')
             try:
-                os.remove(args.location)
+                silentremove(args.location)
             except OSError:
                 eu.err_exit(f'Could not remove database at {args.location}. Is it open in another program?')
 

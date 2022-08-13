@@ -17,9 +17,11 @@ dbvar = {
     ),
     'table_handlers': '''CREATE TABLE IF NOT EXISTS proc.handlers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        registerDate TEXT,
         lastUpdate TEXT
     )''',
-    'insert_handler': 'INSERT INTO handlers (lastUpdate) VALUES (datetime("now"))',
+    'insert_handler': 'INSERT INTO handlers (registerDate, lastUpdate) VALUES (datetime("now"), datetime("now"))',
+    'update_handler': 'UPDATE handlers SET lastUpdate=datetime("now") WHERE id=?',
     'create_insert': lambda max_seq_len=500: f'''
             INSERT INTO proc.processing (entryId, sequence, processingStep, handlerId, lastChange)
             SELECT entryId, sequence, 0, NULL, NULL
@@ -58,6 +60,8 @@ env_structure = {
 def env_path(path, spec, file=None):
     if spec == 'db':
         return os.path.join(path, 'processing.db')
+    elif spec == 'kill':
+        return os.path.join(path, 'kill')
     dir_path = os.path.join(path, env_structure[spec])
     return os.path.join(dir_path, file) if file else dir_path
 

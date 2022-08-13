@@ -1,7 +1,17 @@
 import logging
+import os
 import shutil
 import sys
 
+def kill_signal(env, start_time=0):
+    kill_file = os.path.join(env, 'kill')
+    if not os.path.exists(kill_file):
+        return False
+
+    try:
+        return os.path.getmtime(kill_file) > start_time
+    except OSError:
+        return True
 
 def err_exit(msg, do_exit=True):
     if not do_exit:
