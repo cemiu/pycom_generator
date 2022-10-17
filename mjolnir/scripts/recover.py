@@ -1,6 +1,5 @@
 import logging
 import os
-import pprint
 import re
 import shutil
 import sys
@@ -31,10 +30,10 @@ env_structure = {
     'oa3m': 'proc/oa3m',
     'aln': 'proc/aln',
     'mat': 'proc/mat',
-    'fasta-done': 'extra/fasta',
+    'fasta-done': 'done/fasta',
     'hhr-done': 'extra/hhr',
     'a3m-done': 'extra/a3m',
-    'oa3m-done': 'extra/oa3m',
+    'oa3m-done': 'done/oa3m',
     'aln-done': 'done/aln',
     'mat-done': 'done/mat',
 }
@@ -106,6 +105,7 @@ if __name__ == '__main__':
                 if entry not in entry_dict and neff:
                     entry_dict[entry] = [None, float(neff)]
                 elif entry in entry_dict and neff:
+                    # noinspection PyUnresolvedReferences
                     entry_dict[entry][1] = min(entry_dict[entry][1], float(neff))
                 elif not neff:
                     print(f'No neff for {entry}, reverting to start')
@@ -137,6 +137,7 @@ if __name__ == '__main__':
                             all_files_exist = False
                             break
                     if all_files_exist:
+                        # noinspection PyTypeChecker
                         entry_dict[entry][0] = module
                         break
 

@@ -1,10 +1,6 @@
-import logging
 import sqlite3
-import sys
 import time
 from contextlib import closing
-
-import os
 
 from mjolnir.util import retry
 from .processing_data import *
@@ -23,8 +19,6 @@ db = lambda loc: sqlite3.connect(loc, isolation_level='EXCLUSIVE', timeout=120)
 
 
 @retry(tries=10, exception=sqlite3.OperationalError, match_err=err_disk, msg=err_disk)
-@try_else(delay=0, exception=sqlite3.DatabaseError, match_err=malformed_disk, msg=malformed_disk,
-          else_=lambda: terminate)
 def handler_setup(env):
     db_loc = env_path(env, 'db')
     with db(db_loc) as con, closing(con.cursor()) as c:
@@ -59,8 +53,6 @@ def handler_setup(env):
 
 
 @retry(tries=10, exception=sqlite3.OperationalError, match_err=err_disk, msg=err_disk)
-@try_else(delay=0, exception=sqlite3.DatabaseError, match_err=malformed_disk, msg=malformed_disk,
-          else_=lambda: terminate)
 def database_step(handler, module, num_to_load=0, completed=None, reverted=None):
     db_loc, handler_id = handler
     if not (num_to_load or completed or reverted):
@@ -75,33 +67,6 @@ def database_step(handler, module, num_to_load=0, completed=None, reverted=None)
         con.commit()
 
     return loaded
-
-
-# @retry(tries=3, exception=sqlite3.OperationalError, match_err=err_disk, msg=err_disk)
-# def reindex(env=None, handler=None, **kwargs):
-#     if env:
-#         db_loc = env_path(env, 'db')
-#     elif handler:
-#         db_loc, _ = handler
-#     else:
-#         raise ValueError('No environment or handler provided')
-#
-#     logging.warning(f'Reindexing {db_loc}')
-#     with db(db_loc) as con, closing(con.cursor()) as c:
-#         c.execute('REINDEX')
-#         c.execute('VACUUM')
-#         con.commit()
-#     logging.warning(f'Reindexing {db_loc} complete')
-
-def terminate(env=None, handler=None, **kwargs):
-    if not env:
-        if handler:
-            env = os.path.dirname(handler[0])
-        else:
-            raise ValueError('No environment or handler provided')
-
-    open(env_path(env, 'kill'), 'a').close()
-    sys.exit(0)
 
 
 def _update_list(c, handler, module, entries):

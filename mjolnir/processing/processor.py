@@ -32,7 +32,8 @@ class Processor:
                     args=(self.env, self.handler, self.end_time, self.hhblits_cores, self.clustdb)).start()
 
         if self.run_hhfilter:
-            Process(target=hhfilter.manager, args=(self.env, self.handler, self.end_time, self.hhfilter_threads)).start()
+            Process(target=hhfilter.manager, args=(self.env, self.handler, self.end_time, self.hhfilter_threads))\
+                .start()
 
         if self.run_ccmpred:
             Process(target=ccmpred.manager, args=(self.env, self.handler, self.end_time, self.ccmpred_gpus)).start()

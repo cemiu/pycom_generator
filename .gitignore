@@ -134,7 +134,5 @@ dyno_4_networks.py
 
 #
 .idea/
-identifier.sqlite
 mjolnir/experiment/
 mjolnir_db/
-

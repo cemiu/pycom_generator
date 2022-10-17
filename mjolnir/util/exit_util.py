@@ -2,13 +2,17 @@ import logging
 import os
 import shutil
 import sys
+import time
 
-def kill_signal(env, start_time=0):
+
+def kill_signal(env, start_time=0, recent_time=0):
     kill_file = os.path.join(env, 'kill')
     if not os.path.exists(kill_file):
         return False
 
     try:
+        if recent_time:
+            return time.time() - os.path.getmtime(kill_file) < recent_time
         return os.path.getmtime(kill_file) > start_time
     except OSError:
         return True

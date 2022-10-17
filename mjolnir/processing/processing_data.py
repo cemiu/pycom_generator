@@ -22,11 +22,11 @@ dbvar = {
     )''',
     'insert_handler': 'INSERT INTO handlers (registerDate, lastUpdate) VALUES (datetime("now"), datetime("now"))',
     'update_handler': 'UPDATE handlers SET lastUpdate=datetime("now") WHERE id=?',
-    'create_insert': lambda max_seq_len=500: f'''
+    'create_insert': lambda min_seq_len=5, max_seq_len=500: f'''
             INSERT INTO proc.processing (entryId, sequence, processingStep, handlerId, lastChange)
             SELECT entryId, sequence, 0, NULL, NULL
             FROM entry
-            WHERE length(sequence) <= {max_seq_len}
+            WHERE length(sequence) >= {min_seq_len} AND length(sequence) <= {max_seq_len}
             GROUP BY sequence''',
     'mark_unique': 'SELECT NULL FROM processing WHERE processingStep = ? AND handlerId = ? AND lastChange= ? LIMIT 1',
     'mark_update': lambda limit=1: f'''
@@ -48,10 +48,10 @@ env_structure = {
     'oa3m': 'proc/oa3m',
     'aln': 'proc/aln',
     'mat': 'proc/mat',
-    'fasta-done': 'extra/fasta',
+    'fasta-done': 'done/fasta',
     'hhr-done': 'extra/hhr',
     'a3m-done': 'extra/a3m',
-    'oa3m-done': 'extra/oa3m',
+    'oa3m-done': 'done/oa3m',
     'aln-done': 'done/aln',
     'mat-done': 'done/mat',
 }

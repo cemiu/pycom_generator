@@ -18,6 +18,7 @@ def init_environment(entry_db, env_location):
 def init_db(entry_db, env_location):
     process_db = env_path(env_location, 'db')
     max_seq_len = 500  # sequences with length > max_seq_len will be ignored
+    min_seq_len = 5    # smaller sequences will not have any alignments, and will crash ccmpred
 
     logging.info(f'Creating processing DB from entry DB {entry_db}, filtering sequences longer than {max_seq_len}.')
     time_start = time.time()
@@ -28,7 +29,7 @@ def init_db(entry_db, env_location):
 
         c.execute(dbvar['table'])
         c.execute(dbvar['table_handlers'])
-        c.execute(dbvar['create_insert'](max_seq_len=max_seq_len))
+        c.execute(dbvar['create_insert'](min_seq_len=min_seq_len, max_seq_len=max_seq_len))
         [c.execute(index) for index in dbvar['indices']]
 
     logging.info(f'Finished processing DB creation in {time.time() - time_start:.2f} seconds.')
