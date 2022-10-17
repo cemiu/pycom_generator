@@ -51,6 +51,7 @@ def validate_setup(args, r_hhblits, r_hhfilter, r_ccmpred):
     if r_hhfilter:
         eu.which_exit('hhfilter')
         [eu.which_exit(t, reason='hhfilter for generating .aln files') for t in ['egrep', 'sed', 'sort']]
+        results['hhfilter_threads'] = args.hhfilter_threads if args.hhfilter_threads else 1
         cpu_count -= 1
 
     if r_ccmpred:

@@ -12,9 +12,9 @@ COMMANDS = [
         description='Initialize, load, or update local UniProt database.',
         arguments=[
             (['--location', '-l'], {
-                'help': 'Specify path to local database, for initialization or loading data. '
-                        'The default location is ./mjolnir_db/prot.db',
-                'default': './mjolnir_db/prot.db',
+                'help': f'Specify path to local database, for initialization or loading data. '
+                        f'The default location is {config["default_prot_db_location"]}',
+                'default': config['default_prot_db_location'],
             }),
             (['--init'], {
                 'help': 'Initialize a new empty local database. Exit if one already exists. '
@@ -59,9 +59,9 @@ COMMANDS = [
         arguments=[
             (['--location', '-l'], {
                 'help': 'Path to the entry database being queried. '
-                        f'The default location is {config["default_entry_db_location"]}. '
+                        f'The default location is {config["default_prot_db_location"]}. '
                         f'Only needed when running --prepare-env',
-                'default': config["default_entry_db_location"],
+                'default': config["default_prot_db_location"],
             }),
             (['--env'], {
                 'help': 'Path to the processing environment directory.',
@@ -73,7 +73,6 @@ COMMANDS = [
                 'default': False,
             }),
             (['--run'], {
-                # options: hhblits, hhfilter, ccmpred
                 'help': 'Run the specified algorithm(s) on the database. '
                         'Available options: all, hhblits, hhfilter, ccmpred.',
                 'type': str.casefold,
@@ -100,6 +99,11 @@ COMMANDS = [
                         'Uses all available if not specified. (only needed for CCMpred)',
                 'type': int,
                 'default': None,
+            }),
+            (['--hhfilter-threads'], {
+                'help': 'Number of threads to use for HHFilter.',
+                'type': int,
+                'default': 1,
             }),
             (['--max-time'], {
                 'help': 'Maximum time as "HH:MM:SS" to process. Starts shutdown 1 hour before the time.',
@@ -150,8 +154,6 @@ def get_parser():
 
 
 def main():
-    # config.load()  # todo uncomment
-
     parser = get_parser()
     args = parser.parse_args()
 

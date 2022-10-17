@@ -50,7 +50,7 @@ if __name__ == '__main__':
             INSERT INTO proc.processing (entryId, sequence, processingStep, handlerId, lastChange)
             SELECT entryId, sequence, 0, NULL, NULL
             FROM entry
-            WHERE length(sequence) <= 500
+            WHERE (length(sequence) <= 500 AND length(sequence) >= 5)
             GROUP BY sequence''')
 
         for index in indices:
