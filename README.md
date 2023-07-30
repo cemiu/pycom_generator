@@ -1,4 +1,18 @@
-# mjolnir
+# PyCoM Generator
+
+This code was written for the creation of the PyCoM database. It was written to run on the [Jade2 HPC](https://www.jade.ac.uk/) at Oxford and the [Young HPC](https://www.rc.ucl.ac.uk/docs/Clusters/Young/) at UCL.
+
+The resulting project/database, PyCoM, can be found on [https://pycom.brunel.ac.uk](https://pycom.brunel.ac.uk).
+
+This git repo is also of interest, as it contains the library for interacting with the database created by this: [https://github.com/cemiu/pycom](https://github.com/cemiu/pycom).
+
+My work on this project was funded by the Department of Computer Science, Brunel University London.
+
+### DATABASE DOWNLOAD
+
+https://pycom.brunel.ac.uk/
+
+### Info
 
 Pipeline tools
 
@@ -10,46 +24,20 @@ Sequence alignment
 
 Coevolution matrix
 - ccmpred https://github.com/soedinglab/CCMpred
-- metapsicov https://github.com/psipred/metapsicov
-- plmDCA https://github.com/pagnani/PlmDCA
 
-Secondary structure calculation
-
-PsiPRED:
-- https://github.com/psipred/psipred
-
-#### DATABASE CONTENT
+### DATABASE CONTENT
 
 	- Uniprot ID
-	- Secondary ID
-	- Protein Name <name>
-	- full name
-	- short name
-	- taxonomy full
-	- number of residues
-	- sequence
-	- coevolution matrix 1
-	- Coev. matr.1 _ method
-	- coevolution method 2
-	- coevolution matrix 2
-	- experimental structure boolean Yes/No
-		- list of pdb id's 
-	- Alphafold structure Yes/No
-		-	
+	- protein name / sequence / number of residues
+	- organism name / taxonomy
+	- list of PDBs
 	- Enzyme classification ID
 	- CATH classification ID
-	- PSIPRED DATA available yes/no 
-		-	PSIPRED DATA??
-	- secondary srtucture content (DSSP) pre-requsite of having a structure/model or take info from PSIPRED
+	- secondary srtucture composition
 		- %Helix
 		- %Beta
 		- %Coil/turn
-	- IS_SECONDARY_STRUCTURE_CONTENT_FROM_EXP yes/no
- 	- keywords
-	- disease
-	- Post translational Modification Yes/no 
-	- cofactor boolean yes/no
-		- which cofactor
-	- ligand/substrate yes/no
-		- which substrate
-	- DNA binding Y/N
+ 	- keywords (PTMs, others; see. https://www.uniprot.org/help/keywords)
+	- diseases
+	- cofactors
+	- ligand/substrate
